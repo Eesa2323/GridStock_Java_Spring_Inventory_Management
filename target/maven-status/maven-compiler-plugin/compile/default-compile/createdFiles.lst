@@ -1,0 +1,13 @@
+com\gridstock\GridStockApplication.class
+com\gridstock\repository\OrderItemRepository.class
+com\gridstock\entity\Order.class
+com\gridstock\repository\WarehouseRepository.class
+com\gridstock\entity\Warehouse.class
+com\gridstock\repository\OrderRepository.class
+com\gridstock\controller\InventoryController.class
+com\gridstock\config\DataSeeder.class
+com\gridstock\entity\OrderItem.class
+com\gridstock\repository\BinLocationRepository.class
+com\gridstock\repository\InventoryRepository.class
+com\gridstock\entity\Inventory.class
+com\gridstock\entity\BinLocation.class

@@ -1,0 +1,1174 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GridStock - Smart Warehouse & Picker Routing System</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+        }
+
+        /* Sidebar Navigation */
+        .sidebar {
+            width: 250px;
+            background: rgba(255, 255, 255, 0.95);
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            box-shadow: 2px 0 10px rgba(0,0,0,0.1);
+        }
+
+        .sidebar h1 {
+            color: #667eea;
+            font-size: 1.5em;
+            margin-bottom: 30px;
+            text-align: center;
+        }
+
+        .nav-item {
+            padding: 15px 20px;
+            margin-bottom: 10px;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-weight: 500;
+            color: #333;
+        }
+
+        .nav-item:hover {
+            background: #667eea;
+            color: white;
+            transform: translateX(5px);
+        }
+
+        .nav-item.active {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .nav-item i {
+            margin-right: 10px;
+        }
+
+        /* Main Content */
+        .main-content {
+            flex: 1;
+            padding: 20px;
+            overflow-y: auto;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        .panel {
+            background: white;
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            margin-bottom: 20px;
+        }
+
+        .panel h2 {
+            color: #333;
+            margin-bottom: 15px;
+            font-size: 1.5em;
+            border-bottom: 3px solid #667eea;
+            padding-bottom: 10px;
+        }
+
+        /* Dashboard Grid */
+        .dashboard {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+
+        /* Warehouse Grid */
+        .warehouse-grid {
+            display: grid;
+            gap: 8px;
+            margin-top: 15px;
+        }
+
+        .grid-cell {
+            aspect-ratio: 1;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.85em;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            position: relative;
+            background: #f8f9fa;
+        }
+
+        .grid-cell:hover {
+            transform: scale(1.05);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        }
+
+        .grid-cell.has-inventory {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .grid-cell.low-stock {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            color: white;
+        }
+
+        .grid-cell.route-step {
+            background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+            color: white;
+            animation: pulse 1.5s infinite;
+        }
+
+        .grid-cell.route-step.picking-point {
+            background: linear-gradient(135deg, #fa709a 0%, #fee140 100%);
+            color: white;
+            font-size: 1em;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.7; }
+        }
+
+        .cell-tooltip {
+            position: absolute;
+            bottom: 100%;
+            left: 50%;
+            transform: translateX(-50%);
+            background: #333;
+            color: white;
+            padding: 8px 12px;
+            border-radius: 6px;
+            font-size: 0.8em;
+            white-space: nowrap;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s;
+            z-index: 1000;
+        }
+
+        .grid-cell:hover .cell-tooltip {
+            opacity: 1;
+        }
+
+        /* Order List */
+        .order-list {
+            max-height: 400px;
+            overflow-y: auto;
+        }
+
+        .order-item {
+            background: #f8f9fa;
+            border-left: 4px solid #667eea;
+            padding: 15px;
+            margin-bottom: 10px;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .order-item:hover {
+            background: #e9ecef;
+            transform: translateX(5px);
+        }
+
+        .order-item.selected {
+            background: #667eea;
+            color: white;
+            border-left-color: #fee140;
+        }
+
+        .order-number {
+            font-weight: bold;
+            font-size: 1.1em;
+        }
+
+        .order-customer {
+            color: #666;
+            font-size: 0.9em;
+            margin-top: 5px;
+        }
+
+        .order-item.selected .order-customer {
+            color: rgba(255,255,255,0.9);
+        }
+
+        .order-status {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 0.8em;
+            font-weight: bold;
+            margin-top: 8px;
+        }
+
+        .status-pending {
+            background: #ffc107;
+            color: #333;
+        }
+
+        .status-picking {
+            background: #17a2b8;
+            color: white;
+        }
+
+        .status-ready_to_ship {
+            background: #28a745;
+            color: white;
+        }
+
+        .status-completed {
+            background: #6c757d;
+            color: white;
+        }
+
+        /* Route Visualization */
+        .route-panel {
+            grid-column: 1 / -1;
+        }
+
+        .route-steps {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-top: 15px;
+        }
+
+        .route-step-card {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 15px;
+            border-radius: 8px;
+            min-width: 200px;
+            flex: 1;
+            position: relative;
+        }
+
+        .route-step-card.walkway {
+            background: #6c757d;
+        }
+
+        .route-step-card.picking {
+            background: linear-gradient(135deg, #fa709a 0%, #fee140 100%);
+        }
+
+        .route-step-card.picked {
+            background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+        }
+
+        .step-number {
+            font-size: 2em;
+            font-weight: bold;
+            opacity: 0.3;
+        }
+
+        .step-location {
+            font-weight: bold;
+            margin-top: 5px;
+        }
+
+        .step-product {
+            font-size: 0.9em;
+            margin-top: 5px;
+            opacity: 0.9;
+        }
+
+        .pick-button {
+            margin-top: 10px;
+            padding: 8px 16px;
+            background: white;
+            color: #333;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: all 0.3s ease;
+        }
+
+        .pick-button:hover {
+            transform: scale(1.05);
+        }
+
+        .pick-button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .route-stats {
+            display: flex;
+            gap: 30px;
+            margin-top: 20px;
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 8px;
+        }
+
+        .stat-item {
+            flex: 1;
+            text-align: center;
+        }
+
+        .stat-value {
+            font-size: 2em;
+            font-weight: bold;
+            color: #667eea;
+        }
+
+        .stat-label {
+            color: #666;
+            font-size: 0.9em;
+            margin-top: 5px;
+        }
+
+        /* Progress Bar */
+        .progress-container {
+            margin-top: 20px;
+        }
+
+        .progress-bar {
+            width: 100%;
+            height: 30px;
+            background: #e9ecef;
+            border-radius: 15px;
+            overflow: hidden;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+            transition: width 0.5s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: bold;
+        }
+
+        /* Buttons */
+        .btn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 8px;
+            font-size: 1em;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            margin-right: 10px;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn-success {
+            background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+            color: white;
+        }
+
+        .btn-success:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(17, 153, 142, 0.4);
+        }
+
+        .btn-danger {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            color: white;
+        }
+
+        /* Low Stock Alert */
+        .low-stock-alert {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            color: white;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 15px;
+            display: none;
+        }
+
+        .low-stock-alert.show {
+            display: block;
+        }
+
+        /* Page Visibility */
+        .page {
+            display: none;
+        }
+
+        .page.active {
+            display: block;
+        }
+
+        /* Inventory Table */
+        .inventory-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 15px;
+        }
+
+        .inventory-table th,
+        .inventory-table td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #ddd;
+        }
+
+        .inventory-table th {
+            background: #667eea;
+            color: white;
+        }
+
+        .inventory-table tr:hover {
+            background: #f8f9fa;
+        }
+
+        /* Form Styles */
+        .form-group {
+            margin-bottom: 15px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+            color: #333;
+        }
+
+        .form-group input,
+        .form-group select {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            font-size: 1em;
+        }
+
+        .form-group input:focus,
+        .form-group select:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        /* Search Box */
+        .search-box {
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            width: 100%;
+            margin-bottom: 15px;
+            font-size: 1em;
+        }
+
+        .search-box:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        /* Loading */
+        .loading {
+            text-align: center;
+            padding: 20px;
+            color: #666;
+        }
+
+        .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #667eea;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 10px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        /* Stock Level Indicator */
+        .stock-level {
+            display: inline-block;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 0.8em;
+            font-weight: bold;
+        }
+
+        .stock-high {
+            background: #d4edda;
+            color: #155724;
+        }
+
+        .stock-medium {
+            background: #fff3cd;
+            color: #856404;
+        }
+
+        .stock-low {
+            background: #f8d7da;
+            color: #721c24;
+        }
+    </style>
+</head>
+<body>
+    <!-- Sidebar Navigation -->
+    <div class="sidebar">
+        <h1>🏭 GridStock</h1>
+        <div class="nav-item active" onclick="showPage('dashboard')">
+            📊 Dashboard
+        </div>
+        <div class="nav-item" onclick="showPage('orders')">
+            📦 Orders
+        </div>
+        <div class="nav-item" onclick="showPage('inventory')">
+            📦 Inventory
+        </div>
+        <div class="nav-item" onclick="showPage('create-order')">
+            ➕ Create Order
+        </div>
+    </div>
+
+    <!-- Main Content -->
+    <div class="main-content">
+        <div class="container">
+            <!-- Dashboard Page -->
+            <div id="dashboard-page" class="page active">
+                <div class="dashboard">
+                    <!-- Warehouse Grid Panel -->
+                    <div class="panel">
+                        <h2>📍 Warehouse Floor Layout</h2>
+                        <div id="warehouseGrid" class="warehouse-grid"></div>
+                    </div>
+
+                    <!-- Order Queue Panel -->
+                    <div class="panel">
+                        <h2>📦 Order Queue</h2>
+                        <div id="lowStockAlert" class="low-stock-alert">
+                            ⚠️ Low Stock Alert: Some items need restocking!
+                        </div>
+                        <div id="orderList" class="order-list"></div>
+                    </div>
+
+                    <!-- Route Visualization Panel -->
+                    <div class="panel route-panel">
+                        <h2>🗺️ Optimized Picking Route</h2>
+                        <div id="routeContent">
+                            <p style="color: #666; text-align: center; padding: 20px;">
+                                Select an order from the queue to see the optimized picking route
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Orders Page -->
+            <div id="orders-page" class="page">
+                <div class="panel">
+                    <h2>📦 All Orders</h2>
+                    <input type="text" class="search-box" placeholder="Search orders..." id="orderSearch" onkeyup="filterOrders()">
+                    <div id="allOrdersList" class="order-list"></div>
+                </div>
+            </div>
+
+            <!-- Inventory Page -->
+            <div id="inventory-page" class="page">
+                <div class="panel">
+                    <h2>📦 Inventory Management</h2>
+                    <input type="text" class="search-box" placeholder="Search inventory..." id="inventorySearch" onkeyup="filterInventory()">
+                    <table class="inventory-table">
+                        <thead>
+                            <tr>
+                                <th>SKU</th>
+                                <th>Product Name</th>
+                                <th>Quantity</th>
+                                <th>Stock Level</th>
+                                <th>Bin Location</th>
+                                <th>Price</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="inventoryTableBody"></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Create Order Page -->
+            <div id="create-order-page" class="page">
+                <div class="panel">
+                    <h2>➕ Create New Order</h2>
+                    <form id="createOrderForm" onsubmit="createOrder(event)">
+                        <div class="form-group">
+                            <label>Order Number</label>
+                            <input type="text" id="orderNumber" required placeholder="e.g., ORD-2024-004">
+                        </div>
+                        <div class="form-group">
+                            <label>Customer Name</label>
+                            <input type="text" id="customerName" required placeholder="Enter customer name">
+                        </div>
+                        <div class="form-group">
+                            <label>Select Products (hold Ctrl to select multiple)</label>
+                            <select id="productSelect" multiple size="5" required></select>
+                        </div>
+                        <div class="form-group">
+                            <label>Quantity per product</label>
+                            <input type="number" id="orderQuantity" value="1" min="1" required>
+                        </div>
+                        <button type="submit" class="btn btn-primary">Create Order</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // API Base URL
+        const API_BASE = '/api';
+
+        // Global state
+        let warehouse = null;
+        let orders = [];
+        let allOrders = [];
+        let selectedOrder = null;
+        let inventory = [];
+        let currentOrderId = null;
+
+        // Initialize the application
+        async function init() {
+            await loadWarehouseData();
+            await loadOrders();
+            await loadInventory();
+            renderWarehouseGrid();
+            renderOrderList();
+            renderInventoryTable();
+            checkLowStock();
+            populateProductSelect();
+        }
+
+        // Page Navigation
+        function showPage(pageName) {
+            document.querySelectorAll('.page').forEach(page => page.classList.remove('active'));
+            document.querySelectorAll('.nav-item').forEach(item => item.classList.remove('active'));
+            
+            document.getElementById(pageName + '-page').classList.add('active');
+            event.target.classList.add('active');
+
+            if (pageName === 'orders') {
+                loadAllOrders();
+            }
+        }
+
+        // Load warehouse data
+        async function loadWarehouseData() {
+            try {
+                const response = await fetch(`${API_BASE}/warehouses`);
+                const warehouses = await response.json();
+                if (warehouses.length > 0) {
+                    warehouse = warehouses[0];
+                }
+            } catch (error) {
+                console.error('Error loading warehouse:', error);
+            }
+        }
+
+        // Load orders
+        async function loadOrders() {
+            try {
+                const response = await fetch(`${API_BASE}/orders/pending`);
+                orders = await response.json();
+            } catch (error) {
+                console.error('Error loading orders:', error);
+            }
+        }
+
+        // Load all orders (every order, not just pending)
+        async function loadAllOrders() {
+            try {
+                const response = await fetch(`${API_BASE}/orders`);
+                allOrders = await response.json();
+                renderAllOrdersList(allOrders);
+            } catch (error) {
+                console.error('Error loading all orders:', error);
+            }
+        }
+
+        // Filter the All Orders list by order number or customer name
+        function filterAllOrders() {
+            const searchTerm = document.getElementById('orderSearch').value.toLowerCase();
+            const filtered = allOrders.filter(order =>
+                order.orderNumber.toLowerCase().includes(searchTerm) ||
+                order.customerName.toLowerCase().includes(searchTerm)
+            );
+            renderAllOrdersList(filtered);
+        }
+
+        // Load inventory
+        async function loadInventory() {
+            try {
+                const response = await fetch(`${API_BASE}/inventory`);
+                inventory = await response.json();
+            } catch (error) {
+                console.error('Error loading inventory:', error);
+            }
+        }
+
+        // Check for low stock items
+        async function checkLowStock() {
+            try {
+                const response = await fetch(`${API_BASE}/inventory/low-stock`);
+                const lowStockItems = await response.json();
+                if (lowStockItems.length > 0) {
+                    document.getElementById('lowStockAlert').classList.add('show');
+                }
+            } catch (error) {
+                console.error('Error checking low stock:', error);
+            }
+        }
+
+        // Render warehouse grid
+        function renderWarehouseGrid() {
+            const gridContainer = document.getElementById('warehouseGrid');
+            if (!warehouse) {
+                gridContainer.innerHTML = '<p style="color: #666; text-align: center;">No warehouse data available</p>';
+                return;
+            }
+
+            const rows = warehouse.rows;
+            const cols = warehouse.columns;
+            gridContainer.style.gridTemplateColumns = `repeat(${cols}, 1fr)`;
+
+            gridContainer.innerHTML = '';
+            
+            const binMap = {};
+            if (warehouse.binLocations) {
+                warehouse.binLocations.forEach(bin => {
+                    binMap[`${bin.row},${bin.column}`] = bin;
+                });
+            }
+            
+            for (let row = 0; row < rows; row++) {
+                for (let col = 0; col < cols; col++) {
+                    const cell = document.createElement('div');
+                    cell.className = 'grid-cell';
+                    cell.dataset.row = row;
+                    cell.dataset.col = col;
+                    
+                    const key = `${row},${col}`;
+                    const bin = binMap[key];
+                    
+                    if (bin) {
+                        cell.textContent = bin.binCode;
+                        if (bin.hasInventory) {
+                            cell.classList.add('has-inventory');
+                        }
+                    } else {
+                        cell.textContent = `${row},${col}`;
+                    }
+                    
+                    const tooltip = document.createElement('div');
+                    tooltip.className = 'cell-tooltip';
+                    if (bin) {
+                        tooltip.textContent = `${bin.binCode} - ${bin.hasInventory ? 'Has Inventory' : 'Empty'}`;
+                    } else {
+                        tooltip.textContent = `Position: Row ${row + 1}, Col ${col + 1}`;
+                    }
+                    cell.appendChild(tooltip);
+                    
+                    gridContainer.appendChild(cell);
+                }
+            }
+        }
+
+        // Render order list (optionally filtered by search term)
+        function renderOrderList(filteredOrders = orders) {
+            const orderList = document.getElementById('orderList');
+            
+            if (!filteredOrders || filteredOrders.length === 0) {
+                orderList.innerHTML = '<p style="color: #666; text-align: center; padding: 20px;">No pending orders</p>';
+                return;
+            }
+
+            orderList.innerHTML = filteredOrders.map(order => `
+                <div class="order-item ${selectedOrder && selectedOrder.id === order.id ? 'selected' : ''}" 
+                     onclick="selectOrder(${order.id})">
+                    <div class="order-number">${order.orderNumber}</div>
+                    <div class="order-customer">Customer: ${order.customerName}</div>
+                    <div class="order-customer">Items: ${order.orderItems.length}</div>
+                    <span class="order-status status-${order.status.toLowerCase().replace('_', '_')}">${order.status}</span>
+                </div>
+            `).join('');
+        }
+
+        // Render all orders list
+        function renderAllOrdersList(allOrders) {
+            const orderList = document.getElementById('allOrdersList');
+            
+            if (allOrders.length === 0) {
+                orderList.innerHTML = '<p style="color: #666; text-align: center; padding: 20px;">No orders</p>';
+                return;
+            }
+
+            orderList.innerHTML = allOrders.map(order => `
+                <div class="order-item">
+                    <div class="order-number">${order.orderNumber}</div>
+                    <div class="order-customer">Customer: ${order.customerName}</div>
+                    <div class="order-customer">Items: ${order.orderItems.length}</div>
+                    <span class="order-status status-${order.status.toLowerCase().replace('_', '_')}">${order.status}</span>
+                </div>
+            `).join('');
+        }
+
+        // Render inventory table (optionally filtered by search term)
+        function renderInventoryTable(filteredInventory = inventory) {
+            const tbody = document.getElementById('inventoryTableBody');
+            
+            tbody.innerHTML = (filteredInventory || []).map(item => {
+                const stockLevel = getStockLevel(item.quantity, item.minThreshold);
+                return `
+                    <tr>
+                        <td>${item.sku}</td>
+                        <td>${item.productName}</td>
+                        <td>${item.quantity}</td>
+                        <td><span class="stock-level ${stockLevel.class}">${stockLevel.label}</span></td>
+                        <td>${item.binLocation ? item.binLocation.binCode : 'N/A'}</td>
+                        <td>$${item.price.toFixed(2)}</td>
+                        <td>
+                            <button class="btn btn-primary" style="padding: 5px 10px; font-size: 0.8em;" onclick="restockItem(${item.id})">Restock</button>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        // Get stock level
+        function getStockLevel(quantity, minThreshold) {
+            if (quantity <= minThreshold) {
+                return { class: 'stock-low', label: 'Low' };
+            } else if (quantity <= minThreshold * 2) {
+                return { class: 'stock-medium', label: 'Medium' };
+            } else {
+                return { class: 'stock-high', label: 'High' };
+            }
+        }
+
+        // Select an order and calculate route
+        async function selectOrder(orderId) {
+            selectedOrder = orders.find(o => o.id === orderId);
+            currentOrderId = orderId;
+            renderOrderList();
+            
+            const routeContent = document.getElementById('routeContent');
+            routeContent.innerHTML = `
+                <div class="loading">
+                    <div class="spinner"></div>
+                    <p>Calculating optimal route using Dijkstra's algorithm...</p>
+                </div>
+            `;
+
+            try {
+                const response = await fetch(`${API_BASE}/path-optimization/route/${orderId}`);
+                const route = await response.json();
+                
+                if (route.pathSteps && route.pathSteps.length > 0) {
+                    renderRoute(route);
+                    highlightRouteOnGrid(route.pathSteps);
+                } else {
+                    routeContent.innerHTML = '<p style="color: #666; text-align: center; padding: 20px;">No route calculated</p>';
+                }
+            } catch (error) {
+                console.error('Error calculating route:', error);
+                routeContent.innerHTML = '<p style="color: #dc3545; text-align: center; padding: 20px;">Error calculating route</p>';
+            }
+        }
+
+        // Render the optimized route with picking functionality
+        function renderRoute(route) {
+            const routeContent = document.getElementById('routeContent');
+            
+            const totalItems = route.pathSteps.filter(s => s.productName).length;
+            const pickedItems = selectedOrder.orderItems.filter(item => item.isPicked).length;
+            const progress = totalItems > 0 ? (pickedItems / totalItems) * 100 : 0;
+
+            const stepsHtml = route.pathSteps.map((step, index) => {
+                if (step.productName) {
+                    const orderItem = selectedOrder.orderItems.find(oi => 
+                        oi.inventory.productName === step.productName
+                    );
+                    const isPicked = orderItem && orderItem.isPicked;
+                    const remaining = orderItem ? orderItem.quantity - orderItem.quantityPicked : step.quantity;
+                    
+                    return `
+                        <div class="route-step-card picking ${isPicked ? 'picked' : ''}">
+                            <div class="step-number">${index + 1}</div>
+                            <div class="step-location">📍 ${step.binCode} (Row ${step.row + 1}, Col ${step.column + 1})</div>
+                            <div class="step-product">📦 ${step.productName}</div>
+                            <div class="step-product">Qty to pick: ${remaining}</div>
+                            ${!isPicked ? `<button class="pick-button" onclick="pickItem(${step.row}, ${step.column}, '${step.productName}', ${remaining})">Pick Item</button>` : '<div style="margin-top: 10px; color: white;">✅ Picked</div>'}
+                        </div>
+                    `;
+                } else {
+                    return `
+                        <div class="route-step-card walkway">
+                            <div class="step-number">${index + 1}</div>
+                            <div class="step-location">🚶 Walk to Row ${step.row + 1}, Col ${step.column + 1}</div>
+                        </div>
+                    `;
+                }
+            }).join('');
+
+            routeContent.innerHTML = `
+                <div class="route-stats">
+                    <div class="stat-item">
+                        <div class="stat-value">${route.totalSteps}</div>
+                        <div class="stat-label">Total Steps</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-value">${route.totalDistance.toFixed(1)}</div>
+                        <div class="stat-label">Total Distance (units)</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-value">${pickedItems}/${totalItems}</div>
+                        <div class="stat-label">Items Picked</div>
+                    </div>
+                </div>
+                <div class="progress-container">
+                    <div class="progress-bar">
+                        <div class="progress-fill" style="width: ${progress}%">${Math.round(progress)}%</div>
+                    </div>
+                </div>
+                <div class="route-steps">
+                    ${stepsHtml}
+                </div>
+                <div style="margin-top: 20px; text-align: center;">
+                    <button class="btn btn-success" onclick="completeOrder()">✅ Complete Order</button>
+                    <button class="btn btn-primary" onclick="refreshOrders()">🔄 Refresh Orders</button>
+                </div>
+            `;
+        }
+
+        // Pick an item
+        async function pickItem(row, col, productName, quantity) {
+            if (!currentOrderId) return;
+
+            const orderItem = selectedOrder.orderItems.find(oi => 
+                oi.inventory.productName === productName
+            );
+
+            if (!orderItem) return;
+
+            try {
+                const response = await fetch(`${API_BASE}/orders/${currentOrderId}/items/${orderItem.id}/pick?quantity=${quantity}`, {
+                    method: 'POST'
+                });
+                
+                if (response.ok) {
+                    // Refresh order data
+                    const orderResponse = await fetch(`${API_BASE}/orders/${currentOrderId}`);
+                    selectedOrder = await orderResponse.json();
+                    
+                    // Recalculate route to update UI
+                    const routeResponse = await fetch(`${API_BASE}/path-optimization/route/${currentOrderId}`);
+                    const route = await routeResponse.json();
+                    renderRoute(route);
+                } else {
+                    alert('Error picking item');
+                }
+            } catch (error) {
+                console.error('Error picking item:', error);
+                alert('Error picking item');
+            }
+        }
+
+        // Highlight the route on the warehouse grid
+        function highlightRouteOnGrid(pathSteps) {
+            document.querySelectorAll('.grid-cell').forEach(cell => {
+                cell.classList.remove('route-step', 'picking-point');
+            });
+
+            pathSteps.forEach((step, index) => {
+                const cell = document.querySelector(`.grid-cell[data-row="${step.row}"][data-col="${step.column}"]`);
+                if (cell) {
+                    cell.classList.add('route-step');
+                    if (step.productName) {
+                        cell.classList.add('picking-point');
+                        cell.textContent = `${index + 1}`;
+                    }
+                }
+            });
+        }
+
+        // Complete the selected order
+        async function completeOrder() {
+            if (!selectedOrder) return;
+
+            try {
+                await fetch(`${API_BASE}/orders/${selectedOrder.id}/status?status=COMPLETED`, {
+                    method: 'PATCH'
+                });
+                
+                alert('Order completed successfully!');
+                selectedOrder = null;
+                currentOrderId = null;
+                await loadOrders();
+                renderOrderList();
+                document.getElementById('routeContent').innerHTML = `
+                    <p style="color: #666; text-align: center; padding: 20px;">
+                        Select an order from the queue to see the optimized picking route
+                    </p>
+                `;
+                
+                document.querySelectorAll('.grid-cell').forEach(cell => {
+                    cell.classList.remove('route-step', 'picking-point');
+                });
+            } catch (error) {
+                console.error('Error completing order:', error);
+                alert('Error completing order');
+            }
+        }
+
+        // Refresh orders
+        async function refreshOrders() {
+            await loadOrders();
+            renderOrderList();
+        }
+
+        // Restock item
+        async function restockItem(itemId) {
+            const quantity = prompt('Enter quantity to restock:');
+            if (quantity && !isNaN(quantity)) {
+                try {
+                    await fetch(`${API_BASE}/inventory/${itemId}/restock?quantity=${quantity}`, {
+                        method: 'POST'
+                    });
+                    await loadInventory();
+                    renderInventoryTable();
+                    alert('Item restocked successfully!');
+                } catch (error) {
+                    console.error('Error restocking item:', error);
+                    alert('Error restocking item');
+                }
+            }
+        }
+
+        // Populate product select for order creation
+        function populateProductSelect() {
+            const select = document.getElementById('productSelect');
+            select.innerHTML = inventory.map(item => 
+                `<option value="${item.id}">${item.sku} - ${item.productName} ($${item.price})</option>`
+            ).join('');
+        }
+
+        // Create new order
+        async function createOrder(event) {
+            event.preventDefault();
+            
+            const orderNumber = document.getElementById('orderNumber').value;
+            const customerName = document.getElementById('customerName').value;
+            const selectedProducts = Array.from(document.getElementById('productSelect').selectedOptions);
+            
+            if (selectedProducts.length === 0) {
+                alert('Please select at least one product');
+                return;
+            }
+
+            try {
+                // Create order
+                const orderResponse = await fetch(`${API_BASE}/orders`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        orderNumber: orderNumber,
+                        customerName: customerName,
+                        status: 'PENDING'
+                    })
+                });
+                
+                if (!orderResponse.ok) {
+                    throw new Error(`Failed to create order (${orderResponse.status})`);
+                }
+                const order = await orderResponse.json();
+
+                // Add each selected product as an order item
+                const quantity = parseInt(document.getElementById('orderQuantity').value, 10) || 1;
+                for (const option of selectedProducts) {
+                    const inventoryId = parseInt(option.value, 10);
+                    const itemResponse = await fetch(`${API_BASE}/orders/${order.id}/items`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ inventoryId: inventoryId, quantity: quantity })
+                    });
+                    if (!itemResponse.ok) {
+                        const err = await itemResponse.json().catch(() => ({}));
+                        console.warn(`Could not add item ${inventoryId}:`, err);
+                    }
+                }
+                
+                alert('Order created successfully!');
+                document.getElementById('createOrderForm').reset();
+                await loadOrders();
+                renderOrderList();
+            } catch (error) {
+                console.error('Error creating order:', error);
+                alert('Error creating order: ' + error.message);
+            }
+        }
+
+        // Filter orders — works on both the dashboard queue and the All Orders page
+        function filterOrders() {
+            const searchTerm = document.getElementById('orderSearch').value.toLowerCase();
+            if (document.getElementById('orders-page').classList.contains('active')) {
+                // On the All Orders page, filter the full order list
+                const filtered = allOrders.filter(order =>
+                    order.orderNumber.toLowerCase().includes(searchTerm) ||
+                    order.customerName.toLowerCase().includes(searchTerm)
+                );
+                renderAllOrdersList(filtered);
+            } else {
+                // On the dashboard, filter the pending order queue
+                const filteredOrders = orders.filter(order =>
+                    order.orderNumber.toLowerCase().includes(searchTerm) ||
+                    order.customerName.toLowerCase().includes(searchTerm)
+                );
+                renderOrderList(filteredOrders);
+            }
+        }
+
+        // Filter inventory
+        function filterInventory() {
+            const searchTerm = document.getElementById('inventorySearch').value.toLowerCase();
+            const filteredInventory = inventory.filter(item => 
+                item.sku.toLowerCase().includes(searchTerm) ||
+                item.productName.toLowerCase().includes(searchTerm)
+            );
+            renderInventoryTable(filteredInventory);
+        }
+
+        // Initialize on page load
+        window.onload = init;
+    </script>
+</body>
+</html>
